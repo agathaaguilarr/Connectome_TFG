@@ -34,9 +34,9 @@ class Projecter:
         self.phi = np.atleast_2d(self.phi)
 
         nr_modes = x.shape[1]  # Number of basis vectors (m)
-        print("Number of basis vectores ", nr_modes)
+        #print("Number of basis vectores ", nr_modes)
         nr_phi = self.phi.shape[1]  # Number of phi vectors (k)
-        print("Dimensions for phi (harmonics): ", self.phi.shape)
+        #print("Dimensions for phi (harmonics): ", self.phi.shape)
 
         alpha = np.zeros((nr_modes, nr_phi))  # Initialize alpha as (m × k)
 
@@ -44,12 +44,6 @@ class Projecter:
             for j in range(nr_phi):
                 vec_x = x[:, i]  # (n,)
                 vec_phi = self.phi[:, j]  # (n,)
-
-                # vec_x = x.reshape(-1, 1)  # Asegurar que sea (360, 1)
-                # vec_phi = self.phi.reshape(-1, 1)  # Asegurar que sea (360, 1)
-
-                # vec_phi = self.phi
-                # vec_x = x
 
                 if invert:
                     alpha[i, j] = round(max(np.dot(vec_x.T, vec_phi), np.dot(-vec_x.T, vec_phi)),5)

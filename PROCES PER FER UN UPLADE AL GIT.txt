@@ -1,0 +1,73 @@
+antes de trabajar en mi proyecto
+1. abrir git bash en el directorio del proyecto de mi pc
+2. git pull origin main --rebase
+trabajo en mi proyecto
+3. trabajo y modifico mi proyecto
+subo a github
+4. una vez acabo de añadir vuelvo a abrir el git bash en el directorio correspondiente
+5. git status para ver modificaciones
+6. git add . para añadir todo lo que he modificado excepto aquello que se especifique en el gitignore
+7. git commit -m "mensaje"
+8. git push -u origin main
+
+
+
+
+¡Exacto! Ese flujo de trabajo es correcto y te ayudará a mantener tu proyecto bien organizado en GitHub.  
+
+🔹 **Aquí te dejo un resumen más claro del proceso:**  
+
+### **📌 Antes de trabajar en tu proyecto**
+1️⃣ **Abrir Git Bash** en el directorio de tu proyecto:  
+```bash
+cd "C:/Users/AGATHA/Desktop/4t GEB/TFG/my python codes/connectomeHarmonics"
+```
+2️⃣ **Actualizar el código con la última versión del repositorio remoto:**  
+```bash
+git pull origin main --rebase
+```
+
+---
+
+### **🛠 Trabajar en el código**
+🔹 Modificas y trabajas en tu proyecto normalmente.
+
+---
+
+### **🚀 Subir cambios a GitHub**
+3️⃣ **Abrir Git Bash en el directorio de tu proyecto** (si lo cerraste).  
+4️⃣ **Ver qué archivos fueron modificados:**  
+```bash
+git status
+```
+5️⃣ **Añadir todos los cambios al área de preparación:**  
+```bash
+git add .
+```
+(Si solo quieres agregar un archivo específico, usa `git add nombre_archivo.ext`).
+
+6️⃣ **Hacer un commit con un mensaje descriptivo:**  
+```bash
+git commit -m "Descripción breve de los cambios"
+```
+7️⃣ **Subir los cambios a GitHub:**  
+```bash
+git push -u origin main
+```
+
+🔹 **⚠️ Si te da error porque el remoto ha cambiado, haz primero:**  
+```bash
+git pull origin main --rebase
+```
+y luego intenta `git push` de nuevo.
+
+---
+
+### **🎯 Bonus (Opcional)**
+Si trabajas en una nueva funcionalidad, puedes crear una **rama nueva** en vez de trabajar directamente en `main`:
+```bash
+git checkout -b nueva-rama
+```
+Luego subes tus cambios a esa rama y haces `merge` cuando esté listo.
+
+¡Así trabajarás mejor con Git sin problemas! 🚀

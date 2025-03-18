@@ -1,4 +1,3 @@
-
 from matplotlib import cm, pyplot as plt
 import os
 import numpy as np
@@ -16,18 +15,20 @@ class BrainVisualizer:
         self.mode = mode
         self._setup()
 
-    def _setup(self): # private function, meant to be used only inside this class!!!
+    def _setup(self):  # private function, meant to be used only inside this class!!!
         """
         this function dynamically configures the plotting utilities and cortical atlas setup
         """
         if self.mode == 'Burbu':
             import plot3DBrain_Utils as plt3Dbrain
+            # the lambda function is an an anonymous function
+            self.set_up_Glasser360_cortex = lambda: set_up_Glasser360_cortex(self.work_folder)
         else:  # Gus
-            import Utils.Plotting.plot3DBrain_Utils as plt3Dbrain
-
-        self.plt3Dbrain = plt3Dbrain # the imported module is saved to be used after
-        # the lambda function is an an anonymous function
-        self.set_up_Glasser360_cortex = lambda: set_up_Glasser360_cortex(self.work_folder)
+            import Plotting.plot3DBrain_Utils as plt3Dbrain
+            import DataLoaders.WorkBrainFolder as WBF
+            self.set_up_Glasser360_cortex = lambda: set_up_Glasser360_cortex(
+                WBF.WorkBrainDataFolder + '_Parcellations/')
+        self.plt3Dbrain = plt3Dbrain  # the imported module is saved to be used after
 
     def visualize(self, subject, harmonics, num_to_plot=360):
         """
