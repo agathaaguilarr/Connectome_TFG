@@ -1,5 +1,4 @@
 # import my Classes
-from dataLoader import DataLoader
 from harmonicCalculator import HarmonicCalculator
 from brainVisualizer import BrainVisualizer
 from projecter import Projecter
@@ -9,8 +8,16 @@ import os
 # other util imports
 import numpy as np
 
-Mode = "Burbu"
+Mode = "Burbu"  # Burbu / Gus
 type = "mean"
+
+
+if Mode == "Gus":
+    import DataLoaders.WorkBrainFolder as WBF
+    import DataLoaders.ADNI_A as ADNI_A
+else:
+    from dataLoader import DataLoader
+
 
 class Pipeline:
 
@@ -22,7 +29,10 @@ class Pipeline:
         :param work_folder --> the path to the working folder
         """
         self.work_folder = work_folder
-        self.data_loader = DataLoader(self.work_folder) # initializes the DataLoader, to load the information from the work_folder
+        if Mode == "Gus":
+            self.data_loader = ADNI_A.ADNI_A()
+        else:
+            self.data_loader = DataLoader(self.work_folder) # initializes the DataLoader, to load the information from the work_folder
         self.harmonic_calculator = HarmonicCalculator(th=0.00065) # initialize an instance of the HarmonicCalculator class
         self.visualizer = BrainVisualizer(self.work_folder, Mode) # creates an instance of BrainVisualizer to generate plots
 
@@ -47,14 +57,21 @@ class Pipeline:
         print('Computing harmonics...')
         # compute the harmonics (eigen vectors) for the SC normalized matrix, also the eigen values, which won't be used for now...
         e_val, e_vec = self.harmonic_calculator.compute_harmonics(M)
-        #print("Dimensiones e_vec (harmonics): ", e_vec.shape)
+        print("Dimensiones e_vec (harmonics): ", e_vec.shape)
 
         print("Getting the RSN dictionary")
-        rsnInfo = RestingStateNetworks(self.work_folder)
+        if Mode == "Burbu":
+            parc_path = self.work_folder + r"glasser360/"
+            save_path = os.path.join(self.work_folder, "images")
+        else:
+            parc_path = WBF.WorkBrainProducedDataFolder + '_Parcellations/'
+            save_path = './_Results/'
+        rsn_path = parc_path + 'Glasser360RSN_7_RSN_labels.csv'
+        rsnInfo = RestingStateNetworks(rsn_path, save_path)
         RSN_dictionary, RSN_names = rsnInfo.getRSNinformation()
         print(RSN_names)
         print(RSN_dictionary)
-        #print("RSN_dictionary shape:", RSN_dictionary.shape)  # Debería ser (360, 7)
+        print("RSN_dictionary shape:", RSN_dictionary.shape)  # Debería ser (360, 7)
 
         print("Projecting RSN information...")
         e_vec = e_vec[:RSN_dictionary.shape[0], :]
@@ -84,16 +101,21 @@ if __name__ == '__main__':
 
     if Mode == "Burbu":
         work_folder = "C:/Users/AGATHA/Desktop/4t_GEB/TFG/"
+        data_loader = DataLoader(work_folder)
     else:
         work_folder = ADNI_A.base_folder
+        data_loader = ADNI_A.ADNI_A()
 
     pipeline = Pipeline(work_folder)
-    data_loader = DataLoader(work_folder)
 
     if type == "mean":
         print('Loading average HC matrix...')
-        SC_avg_HC = data_loader.get_group_avg_matrix("HC")
-        print(SC_avg_HC) # EN LA CONSOLA ME SALE "None"
+        if Mode == "Burbu":
+            SC_avg_HC = data_loader.get_group_avg_matrix("HC")
+        else:
+            SC_avg_HC = data_loader.get_AvgSC_ctrl("HC")
+
+        print(SC_avg_HC)
         print(f"Running pipeline for average HC")
         pipeline.run_structural_connectivity(SC_avg_HC, "mean_HC")
 
@@ -107,8 +129,12 @@ if __name__ == '__main__':
         for subject in subjects:
             print('Loading matrix...')
             # loads Structural Connectivity for the subject specified
-            SC = self.data_loader.load_matrix(subject)
+            if Mode == "Gus":
+                SC = self.data_loader.get_subjectData(subject)[subject]['SC']
+            else:
+                SC = self.data_loader.load_matrix(subject)
             print(f"Running pipeline for subject: {subject}")
-            pipeline.run_structural_connectivity(SC, subjecy)  # run the pipeline for each subject
+            pipeline.run_structural_connectivity(SC, subject)  # run the pipeline for each subject
 
     print('The whole tasks have been done!!!')
+         print('The whole tasks have been done!!!')
