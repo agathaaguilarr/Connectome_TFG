@@ -1,23 +1,35 @@
 import numpy as np
 import pandas as pd
 
+from scipy.stats.contingency import crosstab
+from sklearn.metrics import mutual_info_score
+from sklearn.feature_selection import mutual_info_classif
+
+
 class Projecter:
 
-    def __init__(self, phi):
+    def __init__(self, e_vec):
         """
         constructor for this class
         :param phi: it is a nxm matrix (n>=m) where we have multiple basis vectors or an n vector
         """
-        self.phi = phi
+        self.phi = e_vec  # self.phi = e_vec!!! the eigenvectors are constant in the projecter!
 
-    def projectVector(self, x): # simplest way to project
+    def projectVector(self, x, invert=True):  # simplest way to project
         """
-        projects a vector phi onto a single basis vector x using the dot product
-            :param x --> one single basis n vector
-            :return alpha --> the projected vector, its dimension is m
-        """
-        alpha = np.dot(x, self.phi) # dot product
+        projects a vector phi onto a single basis vector x using the
+        dot product
+        :param x --> one single basis n vector
+        :return alpha --> the projected vector, its dimension is m
+                """
+        # alpha = np.dot(x, self.phi) # dot product
+        if invert:
+            alpha = round(max(np.dot(x.T, self.phi), np.dot(-x.T,self.phi)), 5)
+        else:
+            alpha = round(np.dot(x.T, self.phi), 5)
+
         return alpha
+
 
     def projectVectorRegion(self, x, invert=True):
         """
@@ -68,3 +80,62 @@ class Projecter:
             alpha[:, t] = self.projectVectorRegion(F_t, invert)  # project F(t) and store the result
         return alpha
 
+    import numpy as np
+    import pandas as pd
+    from sklearn.feature_selection import mutual_info_classif
+
+    def computeMutualInformation(self, RSN):
+        mutual_info = []
+        for rsn in range(RSN.shape[1]):  # each iteration, one different RSN
+            vector = RSN[:, rsn]
+
+            mi_rsn_i = mutual_info_classif(self.phi, vector, discrete_features=False)
+
+            mutual_info.append(mi_rsn_i)
+
+        return np.array(mutual_info)  # MI matriz: rows = RSN, columns = eigenvectors
+
+        # FORMAT OF THE FINAL RESULT:
+            # [[0.1, 0.3, 0.05, 0.2],  # MI between RSN 0 and all the eigenvectors
+            #                        .................
+            #                        .................
+            #  [0.2, 0.5, 0.3, 0.1]]   # MI between RSN 6 and all the eigenvectors
+
+    def incremental_reconstruction(self, projection, RSN_vector):
+        """
+        Calculates the accumulated reconstruction error by summing weighted eigenvectors.
+
+        :param projection: A vector of projected weights (shape: [N,])
+        :param RSN_vector: DMN vector (shape: [N,])
+        :return: Reconstruction errors list using Euclidean distance.
+        """
+        N = self.phi.shape[0]  # Number of brain regions
+
+        # Define the percentages of eigenvectors used
+        percentages = np.concatenate((
+            np.array([0.0005, 0.005, 0.05]),  # Small values, similar to Fig.3 of S. Atasoy
+            np.logspace(-2, 0, num=10)  # 10 values logarithmically spaced between 1% and 100%
+        ))
+        num_harmonics_list = (percentages * N).astype(int)  # Convert percentages to number of eigenvectors
+
+        # Sort projection values by absolute magnitude (descending order)
+        idx_sorted = np.argsort(-np.abs(projection))  # Get indices for sorting
+        projection_sorted = projection[idx_sorted]  # Sort projection values
+        phi_sorted = self.phi[:, idx_sorted]  # Sort eigenvectors accordingly
+
+        errors = []
+
+        for k in num_harmonics_list:  # Iterate through each quantity of eigenvectors (%)
+            vec_reconstructed = np.zeros(N)  # Initialize the reconstruction vector
+
+            for i in range(k):
+                vec_reconstructed += projection_sorted[i] * phi_sorted[:, i]  # Accumulate reconstruction
+
+            # Calculate the error using Euclidean distance
+            error = np.linalg.norm(vec_reconstructed - RSN_vector)
+            errors.append(error)
+
+        # Normalize errors
+        errors = np.array(errors) / np.max(errors)
+
+        return errors, percentages

@@ -40,22 +40,13 @@ class Pipeline:
         """
         Processes the Structural Connectivity (SC) matrix for a given subject by computing its harmonic components
         and generating 3D brain visualizations.
-
-        Steps:
-        1. Loads the SC matrix for the specified subject.
-        2. Normalizes the SC matrix by scaling it and removing self-connections.
-        3. Computes the eigenvalues and eigenvectors (harmonics) from the normalized SC matrix.
-        4. Generates and saves 3D brain visualizations using the computed eigenvectors to get the needed information.
-
-        :param subject
         """
 
-        # normalize the Structural Connectivity matrix
+        # Normalize SC matrix
         M = (SC / np.max(SC)) * 1.0
         M -= np.diag(np.diag(M))
 
         print('Computing harmonics...')
-        # compute the harmonics (eigen vectors) for the SC normalized matrix, also the eigen values, which won't be used for now...
         e_val, e_vec = self.harmonic_calculator.compute_harmonics(M)
         print("Dimensiones e_vec (harmonics): ", e_vec.shape)
 
@@ -66,28 +57,36 @@ class Pipeline:
         else:
             parc_path = WBF.WorkBrainProducedDataFolder + '_Parcellations/'
             save_path = './_Results/'
+
         rsn_path = parc_path + 'Glasser360RSN_7_RSN_labels.csv'
         rsnInfo = RestingStateNetworks(rsn_path, save_path)
         RSN_dictionary, RSN_names = rsnInfo.getRSNinformation()
-        print(RSN_names)
-        print(RSN_dictionary)
-        print("RSN_dictionary shape:", RSN_dictionary.shape)  # Debería ser (360, 7)
+        print("RSN_dictionary shape:", RSN_dictionary.shape)
 
         print("Projecting RSN information...")
         e_vec = e_vec[:RSN_dictionary.shape[0], :]
-        #print("Dimensions post [:RSN_dictionary.shape[0], :]: ", e_vec.shape)
-        projecter = Projecter(e_vec)
-        proj = projecter.projectVectorRegion(RSN_dictionary) # i want to save the projection into a file
-        print(proj)
-        #print("RSN Projection dimensions: ", proj.shape)
+        projecter = Projecter(e_vec)  # self.phi = e_vec!!!
+        proj = projecter.projectVectorRegion(RSN_dictionary)  # project all the RSN
 
+        # get default mode information for the reconstruction error
+        if "Default" in RSN_names:
+            dmn_index = RSN_names.index("Default")
+            RSN_DMN = RSN_dictionary[:, dmn_index]  # get only the original DMN
+            proj_DMN = proj[dmn_index, :]  # get the DMN projection
+        else:
+            raise ValueError("La Default Mode Network (DMN) no está en el diccionario de RSNs.")
+
+        print("Calculating Mutual Information between RSN and eigenvectors...")
+        mi_matrix = projecter.computeMutualInformation(RSN_dictionary)
+
+        # calculate reconstruction errors
+        errors, percentages = projecter.incremental_reconstruction(proj_DMN, RSN_DMN)
+
+        # visualize every plot
+        rsnInfo.plot_reconstruction_error(errors,percentages)
         self.visualizer.visualize_RSN(subject, proj.T, RSN_names)
-        rsnInfo.visualize_stemplot_RSN(subject, proj, RSN_names)
-
-        print('Generating and saving Brain3D images...')
-        # generate the 3D brain images (plots) for the subject specified
-        self.visualizer.visualize(subject, e_vec, 20)
-        print('Image generation is done!')
+        rsnInfo.visualize_stemplot_RSN(subject, proj, RSN_names, "proj")
+        rsnInfo.visualize_stemplot_RSN(subject, mi_matrix, RSN_names, "mi")
 
     def get_work_folder(self):
         """
@@ -137,4 +136,4 @@ if __name__ == '__main__':
             pipeline.run_structural_connectivity(SC, subject)  # run the pipeline for each subject
 
     print('The whole tasks have been done!!!')
-         print('The whole tasks have been done!!!')
+    print('The whole tasks have been done!!!')
