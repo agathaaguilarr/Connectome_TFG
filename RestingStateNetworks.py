@@ -103,3 +103,14 @@ class RestingStateNetworks:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
         print(f"Reconstruction error plot saved")
+
+    def get_desired_RSN(self, RSN_names, RSN_dictionary, proj, name):
+        # get default mode information for the reconstruction error
+        if name in RSN_names:
+            dmn_index = RSN_names.index(name)
+            desired_RSN = RSN_dictionary[:, dmn_index]  # get only the original DMN
+            desired_proj = proj[dmn_index, :]  # get the DMN projection
+        else:
+            raise ValueError("The ", name, " RSN is not on the dictionary.")
+
+        return desired_RSN, desired_proj

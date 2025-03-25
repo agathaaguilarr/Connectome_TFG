@@ -69,21 +69,13 @@ class Pipeline:
         proj = projecter.projectVectorRegion(RSN_dictionary)  # project all the RSN
         print("Proj shape: ", proj.shape)
 
-        # get default mode information for the reconstruction error
-        if "Default" in RSN_names:
-            dmn_index = RSN_names.index("Default")
-            RSN_DMN = RSN_dictionary[:, dmn_index]  # get only the original DMN
-            print("RSN DMN shape: ", RSN_DMN.shape)
-            proj_DMN = proj[dmn_index, :]  # get the DMN projection
-            print("Proj DMN shape: ", proj_DMN.shape)
-        else:
-            raise ValueError("La Default Mode Network (DMN) no está en el diccionario de RSNs.")
+        desired_RSN, desired_proj = rsnInfo.get_desired_RSN(RSN_names, RSN_dictionary, proj, "Default")
 
         print("Calculating Mutual Information between RSN and eigenvectors...")
         mi_matrix = projecter.computeMutualInformation(RSN_dictionary)
 
         # calculate reconstruction errors
-        errors = projecter.accumulated_reconstruction_error(proj_DMN, RSN_DMN)
+        errors = projecter.accumulated_reconstruction_error(desired_proj, desired_RSN)
 
         # visualize every plot
         rsnInfo.plot_reconstruction_error(errors,Mode)
