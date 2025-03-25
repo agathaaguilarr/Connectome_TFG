@@ -5,7 +5,6 @@ from scipy.stats.contingency import crosstab
 from sklearn.metrics import mutual_info_score
 from sklearn.feature_selection import mutual_info_classif
 
-
 class Projecter:
 
     def __init__(self, e_vec):
@@ -15,7 +14,7 @@ class Projecter:
         """
         self.phi = e_vec  # self.phi = e_vec!!! the eigenvectors are constant in the projecter!
 
-    def projectVector(self, x, invert=True):  # simplest way to project
+    def projectVector(self, x, invert=False):  # simplest way to project
         """
         projects a vector phi onto a single basis vector x using the
         dot product
@@ -31,7 +30,7 @@ class Projecter:
         return alpha
 
 
-    def projectVectorRegion(self, x, invert=True):
+    def projectVectorRegion(self, x, invert=False):
         """
         Projects a vector or multiple vectors (phi) onto multiple basis vectors in x.
 
@@ -80,10 +79,6 @@ class Projecter:
             alpha[:, t] = self.projectVectorRegion(F_t, invert)  # project F(t) and store the result
         return alpha
 
-    import numpy as np
-    import pandas as pd
-    from sklearn.feature_selection import mutual_info_classif
-
     def computeMutualInformation(self, RSN):
         mutual_info = []
         for rsn in range(RSN.shape[1]):  # each iteration, one different RSN
@@ -101,41 +96,56 @@ class Projecter:
             #                        .................
             #  [0.2, 0.5, 0.3, 0.1]]   # MI between RSN 6 and all the eigenvectors
 
-    def incremental_reconstruction(self, projection, RSN_vector):
+    def sort_projections(self, projection):
+
+        # order the eigenvectors (phi) and its projections (projection) depending on the projection value (weights), the order is descendent
+        # order the magnitude of the projection from bigger to smaller and get the indices
+        sorted_indices = np.argsort(np.abs(projection))[::-1]
+        # order the eigenvectors (self.phi) and the projections (projection) depending on the ordered indices from before
+        sorted_projection = projection[sorted_indices]
+        sorted_phi = self.phi[:, sorted_indices]
+
+        return sorted_projection, sorted_phi
+
+    def reconstruction_error(self, projection, RSN_vector, phi_partial):
         """
-        Calculates the accumulated reconstruction error by summing weighted eigenvectors.
+            Calculates the accumulated reconstruction error by summing weighted eigenvectors.
 
-        :param projection: A vector of projected weights (shape: [N,])
-        :param RSN_vector: DMN vector (shape: [N,])
-        :return: Reconstruction errors list using Euclidean distance.
+            :param projection: A vector of projected weights (shape: [N,])
+            :param RSN_vector: RSN vector (shape: [N,])
+            :return: Normalized reconstruction errors list
         """
-        N = self.phi.shape[0]  # Number of brain regions
 
-        # Define the percentages of eigenvectors used
-        percentages = np.concatenate((
-            np.array([0.0005, 0.005, 0.05]),  # Small values, similar to Fig.3 of S. Atasoy
-            np.logspace(-2, 0, num=10)  # 10 values logarithmically spaced between 1% and 100%
-        ))
-        num_harmonics_list = (percentages * N).astype(int)  # Convert percentages to number of eigenvectors
+        # unification of dimensions, taking as reference the eigenvector matrix size
+        n = phi_partial.shape[0]
+        projection = projection[:n]
+        phi = phi_partial[:n, :]
 
-        # Sort projection values by absolute magnitude (descending order)
-        idx_sorted = np.argsort(-np.abs(projection))  # Get indices for sorting
-        projection_sorted = projection[idx_sorted]  # Sort projection values
-        phi_sorted = self.phi[:, idx_sorted]  # Sort eigenvectors accordingly
+        # calculate the reconstructed vector (multiplying each vector i to the correspondent projection i (value))
+        reconstructed_vector = np.dot(phi, projection)
 
-        errors = []
+        # calculate the reconstruction error using the Euclidean distance between the real RSN vector and the reconstructed one
+        error = np.linalg.norm(RSN_vector - reconstructed_vector)
 
-        for k in num_harmonics_list:  # Iterate through each quantity of eigenvectors (%)
-            vec_reconstructed = np.zeros(N)  # Initialize the reconstruction vector
+        return error
 
-            for i in range(k):
-                vec_reconstructed += projection_sorted[i] * phi_sorted[:, i]  # Accumulate reconstruction
+    def accumulated_reconstruction_error(self, projection, RSN_vector):
 
-            # Calculate the error using Euclidean distance
-            error = np.linalg.norm(vec_reconstructed - RSN_vector)
-            errors.append(error)
+        proj, phi = self.sort_projections(projection)
 
-        # Normalize errors
-        errors = np.array(errors) / np.max(errors)
+        error_accumulated = []  # we will save here the errors
 
-        return errors, percentages
+        total_components = RSN_vector.shape[0]  # number of total components
+
+        for i in range(1, total_components + 1):  # Iteramos sobre los componentes
+            # we take the first i components, each time i will get grater until all the components are taken into account
+            proj_partial = proj[:i]  # % of projectionses
+            phi_partial = phi[:, :i]  # % of eigenvectors
+
+            # calculate the reconstructed error for the selected portion
+            error = self.reconstruction_error(proj_partial, RSN_vector, phi_partial)
+            error_accumulated.append(error)  # save the error
+
+        # normalize between 0-1
+        norm_acc_error = np.array(error_accumulated)/max(np.array(error_accumulated))
+        return norm_acc_error

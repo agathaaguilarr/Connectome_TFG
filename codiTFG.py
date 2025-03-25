@@ -67,12 +67,15 @@ class Pipeline:
         e_vec = e_vec[:RSN_dictionary.shape[0], :]
         projecter = Projecter(e_vec)  # self.phi = e_vec!!!
         proj = projecter.projectVectorRegion(RSN_dictionary)  # project all the RSN
+        print("Proj shape: ", proj.shape)
 
         # get default mode information for the reconstruction error
         if "Default" in RSN_names:
             dmn_index = RSN_names.index("Default")
             RSN_DMN = RSN_dictionary[:, dmn_index]  # get only the original DMN
+            print("RSN DMN shape: ", RSN_DMN.shape)
             proj_DMN = proj[dmn_index, :]  # get the DMN projection
+            print("Proj DMN shape: ", proj_DMN.shape)
         else:
             raise ValueError("La Default Mode Network (DMN) no está en el diccionario de RSNs.")
 
@@ -80,10 +83,10 @@ class Pipeline:
         mi_matrix = projecter.computeMutualInformation(RSN_dictionary)
 
         # calculate reconstruction errors
-        errors, percentages = projecter.incremental_reconstruction(proj_DMN, RSN_DMN)
+        errors = projecter.accumulated_reconstruction_error(proj_DMN, RSN_DMN)
 
         # visualize every plot
-        rsnInfo.plot_reconstruction_error(errors,percentages)
+        rsnInfo.plot_reconstruction_error(errors,Mode)
         self.visualizer.visualize_RSN(subject, proj.T, RSN_names)
         rsnInfo.visualize_stemplot_RSN(subject, proj, RSN_names, "proj")
         rsnInfo.visualize_stemplot_RSN(subject, mi_matrix, RSN_names, "mi")
@@ -114,7 +117,6 @@ if __name__ == '__main__':
         else:
             SC_avg_HC = data_loader.get_AvgSC_ctrl("HC")
 
-        print(SC_avg_HC)
         print(f"Running pipeline for average HC")
         pipeline.run_structural_connectivity(SC_avg_HC, "mean_HC")
 
@@ -135,5 +137,4 @@ if __name__ == '__main__':
             print(f"Running pipeline for subject: {subject}")
             pipeline.run_structural_connectivity(SC, subject)  # run the pipeline for each subject
 
-    print('The whole tasks have been done!!!')
     print('The whole tasks have been done!!!')

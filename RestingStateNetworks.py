@@ -49,7 +49,7 @@ class RestingStateNetworks:
         :param RSN_names: a list for RSN names
         """
         save_folder = os.path.join(self.save_path, (subject + "_RSN"))
-        os.makedirs(save_folder, exist_ok=True)  # Crear directorio base si no existe
+        os.makedirs(save_folder, exist_ok=True)
 
         if name == "mi":
             info = "mutual_information"
@@ -59,23 +59,24 @@ class RestingStateNetworks:
             y_label = "projection"
 
         for i, rsn_name in enumerate(RSN_names):
-            # Crear subcarpeta específica para cada RSN
+            # create folders and directories
             rsn_folder = os.path.join(save_folder, rsn_name, info)
-            os.makedirs(rsn_folder, exist_ok=True)  # Ahora sí se crean todos los subdirectorios necesarios
+            os.makedirs(rsn_folder, exist_ok=True)
 
+            #create the plot
             plt.figure(figsize=(6, 4))
             plt.stem(proj[i, 1:51])
             plt.title(f"{rsn_name} {info}")
             plt.xlabel("N harmonic")
             plt.ylabel(y_label)
 
-            # Ruta final para guardar la imagen
+            # path to save the final image
             image_path = os.path.join(rsn_folder, f"{rsn_name}_{info}.png")
             plt.savefig(image_path, dpi=300, bbox_inches="tight")
             plt.close()
             print("Stem plot saved to " + image_path)
 
-    def plot_reconstruction_error(self, errors, percentages):
+    def plot_reconstruction_error(self, errors, mode):
         """
         Plots the reconstruction error for Default Mode RSN
 
@@ -83,14 +84,16 @@ class RestingStateNetworks:
         :param percentages: percentages used to calculate the reconstruction error
         """
 
-        save_dir = r"C:\Users\AGATHA\Desktop\4t_GEB\TFG\images\mean_HC_RSN"
+        if mode == "Burbu":
+            save_dir = r"C:\Users\AGATHA\Desktop\4t_GEB\TFG\images\mean_HC_RSN"
+        else:
+            save_dir = './_Results'
         os.makedirs(save_dir, exist_ok=True)  # creates the folder if not existing
-
         save_path = os.path.join(save_dir, "Reconstruction_Error.png")
 
-        # Graficar el error de reconstrucción
+        # plot the reconstruction error
         plt.figure(figsize=(8, 5))
-        plt.plot(percentages, errors, marker='o', linestyle='-')
+        plt.plot(errors, marker='o', linestyle='-')
         plt.xlabel('% used eigenvectors')
         plt.ylabel('Reconstruction error')
         plt.title('Reconstruction Error for Default Mode (DMN)')
@@ -99,5 +102,4 @@ class RestingStateNetworks:
         # save the plot
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
-
-        print(f"Reconstruction error plot saved at: {save_path}")
+        print(f"Reconstruction error plot saved")

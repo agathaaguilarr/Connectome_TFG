@@ -12,7 +12,6 @@ class DataLoader:
         """
         self.base_folder = base_folder
         self.csv_path = os.path.join(self.base_folder, "dades", "subjects.csv")
-        print(self.csv_path)
         self.patient_data = self._load_patient_data()
 
     def _load_patient_data(self):
