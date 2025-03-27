@@ -76,7 +76,7 @@ class RestingStateNetworks:
             plt.close()
             print("Stem plot saved to " + image_path)
 
-    def plot_reconstruction_error(self, errors, mode):
+    def plot_reconstruction_error(self, errors, mode, rsn, sort=False):
         """
         Plots the reconstruction error for Default Mode RSN
 
@@ -89,7 +89,10 @@ class RestingStateNetworks:
         else:
             save_dir = './_Results'
         os.makedirs(save_dir, exist_ok=True)  # creates the folder if not existing
-        save_path = os.path.join(save_dir, "Reconstruction_Error.png")
+        if sort:
+            save_path = os.path.join(save_dir, rsn, "_Sorted_Reconstruction_Error.png")
+        else:
+            save_path = os.path.join(save_dir, rsn, "_Reconstruction_Error.png")
 
         # plot the reconstruction error
         plt.figure(figsize=(8, 5))
@@ -104,13 +107,58 @@ class RestingStateNetworks:
         plt.close()
         print(f"Reconstruction error plot saved")
 
-    def get_desired_RSN(self, RSN_names, RSN_dictionary, proj, name):
-        # get default mode information for the reconstruction error
+    def get_desired_RSN(self, RSN_names, RSN_dictionary, proj, name="Default"):
+        """
+        obtains the information related to the desired RSN
+        :param RSN_names: a n vector of RSN names
+        :param RSN_dictionary: m*n matrix that contains binary vectors representing each RSN
+        :param proj: n*k matrix that contains the projections between the harmonics (eigenvectors) and the RSN
+        :param name: the name of the desired RSN, by default is "Default" (DMN)
+        :return: desired_RSN: an m binary vector showing the desired RSN
+        :return: desired_proj: a k vector that contains the projection between the eigenvectors and the RSN desired
+        """
+        # get desired mode information
         if name in RSN_names:
             dmn_index = RSN_names.index(name)
-            desired_RSN = RSN_dictionary[:, dmn_index]  # get only the original DMN
-            desired_proj = proj[dmn_index, :]  # get the DMN projection
+            desired_RSN = RSN_dictionary[:, dmn_index]  # get only the original desired RSN
+            desired_proj = proj[dmn_index, :]  # get the correspondant projection
         else:
             raise ValueError("The ", name, " RSN is not on the dictionary.")
 
         return desired_RSN, desired_proj
+
+    def plot_all_reconstruction_errors(self, errors_dict, mode):
+        """
+        Plots the reconstruction error for multiple RSNs in the same figure with different colors.
+
+        :param errors_dict: Dictionary where keys are RSN names and values are error arrays.
+        :param mode: Mode used for saving the plots.
+        """
+
+        if mode == "Burbu":
+            save_dir = r"C:\Users\AGATHA\Desktop\4t_GEB\TFG\images\mean_HC_RSN"
+        else:
+            save_dir = './_Results'
+        os.makedirs(save_dir, exist_ok=True)  # Crea la carpeta si no existe
+
+        plt.figure(figsize=(10, 6))
+
+        # colors for the different plots
+        colors = plt.cm.viridis(np.linspace(0, 1, len(errors_dict)))
+
+        # plot each RSN
+        for (rsn, errors), color in zip(errors_dict.items(), colors):
+            plt.plot(errors, label=rsn, color=color)
+
+        plt.xlabel("% used vectors")
+        plt.ylabel("Normalized reconstruction error")
+        plt.title("RECONSTRUCTION ERROR FOR EACH RSN")
+        plt.legend(title="RSNs", fontsize='small', loc='best')
+        plt.grid(True)
+
+        #save
+        save_path = os.path.join(save_dir, "All_RSN_Reconstruction_Errors.png")
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        plt.close()
+
+        print(f"All reconstruction error plot saved at {save_path}")

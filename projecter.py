@@ -14,11 +14,14 @@ class Projecter:
         """
         self.phi = e_vec  # self.phi = e_vec!!! the eigenvectors are constant in the projecter!
 
-    def projectVector(self, x, invert=False):  # simplest way to project
+    def projectVector(self, x, invert=True):  # simplest way to project
         """
         projects a vector phi onto a single basis vector x using the
         dot product
         :param x --> one single basis n vector
+        :param invert: Boolean flag to determine projection method.
+                       - True: Considers both x and -x, keeping the strongest projection.
+                       - False: Normal dot product.
         :return alpha --> the projected vector, its dimension is m
                 """
         # alpha = np.dot(x, self.phi) # dot product
@@ -30,7 +33,7 @@ class Projecter:
         return alpha
 
 
-    def projectVectorRegion(self, x, invert=False):
+    def projectVectorRegion(self, x, invert=True):
         """
         Projects a vector or multiple vectors (phi) onto multiple basis vectors in x.
 
@@ -80,6 +83,11 @@ class Projecter:
         return alpha
 
     def computeMutualInformation(self, RSN):
+        """
+        computes the mutual information between RSN and each eigenvector (self.phi)
+        :param RSN: a n*m matrix where n are the regions and m are the number of RSN
+        :return: the mutual information between RSN and each eigenvector
+        """
         mutual_info = []
         for rsn in range(RSN.shape[1]):  # each iteration, one different RSN
             vector = RSN[:, rsn]
@@ -97,8 +105,12 @@ class Projecter:
             #  [0.2, 0.5, 0.3, 0.1]]   # MI between RSN 6 and all the eigenvectors
 
     def sort_projections(self, projection):
-
-        # order the eigenvectors (phi) and its projections (projection) depending on the projection value (weights), the order is descendent
+        """
+        order the eigenvectors (self.phi) and its projections (projection) depending on the projection value (weights/importance),
+        the order is descendent, from grater to smaller
+        :param projection: an n vector corresponding to the eigenvectors projected to a vector (normally RSN)
+        :return: sorted_projection, sorted_phi, respectively the ordered projections and eigenvectors
+        """
         # order the magnitude of the projection from bigger to smaller and get the indices
         sorted_indices = np.argsort(np.abs(projection))[::-1]
         # order the eigenvectors (self.phi) and the projections (projection) depending on the ordered indices from before
@@ -129,21 +141,33 @@ class Projecter:
 
         return error
 
-    def accumulated_reconstruction_error(self, projection, RSN_vector):
+    def accumulated_reconstruction_error(self, projection, RSN_vector, sort=False):
+        """
+        it computes the accumulated reconstruction error
+        :param projection: the projection corresponding to RSN_vector
+        :param RSN_vector: the original RSN vector
+        :param sort: whether to sort the reconstruction error or not
+        :param name: name of the RSNa
+        :return norm_acc_error: the normalized incremental reconstruction error
+        """
+        if sort: # sort in a descendent order
+            proj, phi = self.sort_projections(projection) # descendent sorting of the projections (weights) and the eigenvectors (harmonics)
+                                                          # the projections tell us the importance of each eigenvector in the RSN reconstruction
+        else: # don't sort
+            proj = projection
+            phi = self.phi
 
-        proj, phi = self.sort_projections(projection)
-
+        # prepare instances
         error_accumulated = []  # we will save here the errors
-
         total_components = RSN_vector.shape[0]  # number of total components
 
-        for i in range(1, total_components + 1):  # Iteramos sobre los componentes
-            # we take the first i components, each time i will get grater until all the components are taken into account
-            proj_partial = proj[:i]  # % of projectionses
+        for i in range(1, total_components + 1):
+            # each time we take the first i components, each time i will get grater (+1) until all the components are taken into account
+            proj_partial = proj[:i]  # % of projections
             phi_partial = phi[:, :i]  # % of eigenvectors
 
             # calculate the reconstructed error for the selected portion
-            error = self.reconstruction_error(proj_partial, RSN_vector, phi_partial)
+            error = self.reconstruction_error(proj_partial, RSN_vector, phi_partial) # at each iteration we send 1 more pair of (eigenvector - projection)
             error_accumulated.append(error)  # save the error
 
         # normalize between 0-1

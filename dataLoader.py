@@ -2,7 +2,6 @@ import os
 import pandas as pd
 import numpy as np
 
-
 class DataLoader:
     def __init__(self, base_folder):
         """
