@@ -53,7 +53,7 @@ class Pipeline:
         # we don't care about the eigen values!
         return e_vec
 
-    def run_structural_connectivity(self, SC, subject):
+    def run(self, SC, subject):
         """
         Processes the Structural Connectivity (SC) matrix for a given subject by computing its harmonic components
         and generating 3D brain visualizations.
@@ -108,7 +108,7 @@ class Pipeline:
             # save it in the errors dictionary
             errors_dict[rsn] = errors
         # generate the plot
-        rsnInfo.plot_all_reconstruction_errors(errors_dict, Mode)
+        rsnInfo.plot_all_reconstruction_errors(errors_dict, Mode, subject)
 
         # OTHER OPERATIONS AND PLOTS
         #plot the sorted reconstruction error only for the "Default" mode
@@ -136,15 +136,19 @@ if __name__ == '__main__':
     pipeline = Pipeline(work_folder)
 
     if type == "mean":
-        print('Loading average HC matrix...')
+        print('Loading average matrixs...')
         if Mode == "Burbu":
-            SC_avg_HC = data_loader.get_group_avg_matrix("HC") # + sc ??
-            #FC_avg_HC = data_loader.get_group_avg_matrix("HC", fmri)
+            # compute the mean for all SC matrixs
+            SC_avg_HC = data_loader.get_group_avg_matrix("HC")
+            # compute the mean for all FC matrixs
+            FC_avg_HC = data_loader.get_group_avg_matrix("HC", False)
         else:
             SC_avg_HC = data_loader.get_AvgSC_ctrl("HC")
 
-        print(f"Running pipeline for average HC")
-        pipeline.run_structural_connectivity(SC_avg_HC, "mean_HC")
+        print(f"Running pipeline for average controls SC")
+        pipeline.run(SC_avg_HC, "mean_control_SC")
+        print(f"Running pipeline for average controls FC")
+        pipeline.run(FC_avg_HC, "mean_control_FC")
 
     else: #Gus Mode
         connectomes_path = os.path.join(pipeline.work_folder, "dades", "conncetomes", "conncetomes")

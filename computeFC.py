@@ -1,15 +1,13 @@
 import numpy as np
 
-class computeFC():
-    def __init__(self, ):
-        self.input = input
-        self.output = output
 
-    def compute_from_fmri(self, fmri):
+class ComputeFC:
+    @staticmethod  # it makes possible to call the functions without instantiating the class
+    def compute_from_fmri(fmri):
         """
-        computes the Functional Connectivity Matrix from FMRI, which is no more than the correlation of the BOLD (fMRI) data
-        :param fmri: BOLD data
-        :return: the Functional Connectivity Matrix (cc)
+        Computes the Functional Connectivity Matrix from fMRI data.
+
+        :param fmri: 2D NumPy array (BOLD signals, shape: [n_regions, timepoints])
+        :return: Functional Connectivity Matrix (FC), shape: [n_regions, n_regions]
         """
-        FC = np.corrcoef(fmri, rowvar=True)  # Pearson correlation coefficients
-        return FC
+        return np.corrcoef(fmri.T, rowvar=False)  # Pearson correlation

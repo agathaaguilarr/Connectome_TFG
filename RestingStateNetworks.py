@@ -94,6 +94,8 @@ class RestingStateNetworks:
         else:
             save_path = os.path.join(save_dir, rsn, "_Reconstruction_Error.png")
 
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
         # plot the reconstruction error
         plt.figure(figsize=(8, 5))
         plt.plot(errors, marker='o', linestyle='-')
@@ -127,7 +129,7 @@ class RestingStateNetworks:
 
         return desired_RSN, desired_proj
 
-    def plot_all_reconstruction_errors(self, errors_dict, mode):
+    def plot_all_reconstruction_errors(self, errors_dict, mode, s):
         """
         Plots the reconstruction error for multiple RSNs in the same figure with different colors.
 
@@ -136,7 +138,8 @@ class RestingStateNetworks:
         """
 
         if mode == "Burbu":
-            save_dir = r"C:\Users\AGATHA\Desktop\4t_GEB\TFG\images\mean_HC_RSN"
+            save_dir = os.path.join(r"C:\Users\AGATHA\Desktop\4t_GEB\TFG\images\rec_errors", s)
+            os.makedirs(save_dir, exist_ok=True)
         else:
             save_dir = './_Results'
         os.makedirs(save_dir, exist_ok=True)  # Crea la carpeta si no existe
@@ -156,7 +159,7 @@ class RestingStateNetworks:
         plt.legend(title="RSNs", fontsize='small', loc='best')
         plt.grid(True)
 
-        #save
+        #save the plot
         save_path = os.path.join(save_dir, "All_RSN_Reconstruction_Errors.png")
         plt.savefig(save_path, dpi=300, bbox_inches="tight")
         plt.close()

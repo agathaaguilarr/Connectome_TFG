@@ -91,7 +91,9 @@ class BrainVisualizer:
             norm = plt.Normalize(vmin=np.min(rsn_projection), vmax=np.max(rsn_projection))  # Define color normalization
 
             # set the save path for the image with the RSN labels
-            save_path = os.path.join(save_dir, f"{names_vector[i]}_rsn.png")
+            save_path = os.path.join(save_dir, f"{names_vector[i]}", f"{names_vector[i]}_rsn.png")
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
 
             # generate and Save the 3D Brain Visualization
             self.plt3Dbrain.multiview5(
