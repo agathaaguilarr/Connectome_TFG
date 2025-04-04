@@ -10,4 +10,4 @@ class ComputeFC:
         :param fmri: 2D NumPy array (BOLD signals, shape: [n_regions, timepoints])
         :return: Functional Connectivity Matrix (FC), shape: [n_regions, n_regions]
         """
-        return np.corrcoef(fmri.T, rowvar=False)  # Pearson correlation
+        return np.corrcoef(fmri, rowvar=True)  # Pearson correlation

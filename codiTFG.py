@@ -4,6 +4,7 @@ from brainVisualizer import BrainVisualizer
 from projecter import Projecter
 from RestingStateNetworks import RestingStateNetworks
 import os
+import pandas as pd
 
 # other util imports
 import numpy as np
@@ -46,12 +47,16 @@ class Pipeline:
         # normalize SC matrix
         M = (matrix / np.max(matrix)) * 1.0
         M -= np.diag(np.diag(M))
-
+        df = pd.DataFrame(matrix)
+        print(df)
         # compute the harmonics (eigenvectors)
         print('Computing harmonics...')
         e_val, e_vec = self.harmonic_calculator.compute_harmonics(M)
-        # we don't care about the eigen values!
-        return e_vec
+
+        idx = np.argsort(e_val)[::-1]  # sort from greater to smaller
+        eigenvectors = e_vec[:, idx]
+
+        return eigenvectors
 
     def run(self, SC, subject):
         """
@@ -137,13 +142,16 @@ if __name__ == '__main__':
 
     if type == "mean":
         print('Loading average matrixs...')
-        if Mode == "Burbu":
+        if Mode == "Burbu": # Burbu Mode
             # compute the mean for all SC matrixs
             SC_avg_HC = data_loader.get_group_avg_matrix("HC")
             # compute the mean for all FC matrixs
             FC_avg_HC = data_loader.get_group_avg_matrix("HC", False)
-        else:
+        else:  # Gus Mode
             SC_avg_HC = data_loader.get_AvgSC_ctrl("HC")
+            data = data_loader.get_fullGroup_data("HC")
+            FCs = [np.corrcoef(data[s]["timeseries"][:360],rowvar=True) for s in data]
+            FC_avg_HC = np.mean(FCs, axis=0)
 
         print(f"Running pipeline for average controls SC")
         pipeline.run(SC_avg_HC, "mean_control_SC")

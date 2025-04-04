@@ -60,7 +60,7 @@ class Projecter:
                 vec_phi = self.phi[:, j]  # (n,)
 
                 if invert:
-                    alpha[i, j] = round(max(np.dot(vec_x.T, vec_phi), np.dot(-vec_x.T, vec_phi)),5)
+                    alpha[i, j] = round(max(np.dot(vec_x.T, vec_phi), np.dot(-vec_x.T, vec_phi)))
                 else:
                     alpha[i, j] = round(np.dot(vec_x.T, vec_phi),5)
 
