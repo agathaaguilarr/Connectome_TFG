@@ -3,6 +3,8 @@ from harmonicCalculator import HarmonicCalculator
 from brainVisualizer import BrainVisualizer
 from projecter import Projecter
 from RestingStateNetworks import RestingStateNetworks
+from mutualInfo import mutualInformation
+from recosntructionError import reconstructionError
 import os
 import pandas as pd
 
@@ -31,17 +33,18 @@ class Pipeline:
         """
         self.work_folder = work_folder
         if Mode == "Gus":
-            self.data_loader = ADNI_A.ADNI_A()
+            self.data_loadera = ADNI_A.ADNI_A()
         else:
             self.data_loader = DataLoader(self.work_folder) # initializes the DataLoader, to load the information from the work_folder
         self.harmonic_calculator = HarmonicCalculator(th=0.00065) # initialize an instance of the HarmonicCalculator class
         self.visualizer = BrainVisualizer(self.work_folder, Mode) # creates an instance of BrainVisualizer to generate plots
+        self.rsnInfo = self._getRSNinfo()
 
-    def compute_e(self, matrix):
+    def _compute_e(self, matrix):
         """
         computes the eigenvectors and eigenvalues of the matrix, this matrix is normalized before the computation
         :param matrix: nxn matrix, it can be the SC matric or the FC matrix
-        :return: eigenvectors and eigenvalues of the matrix
+        :return: sorted eigenvectors
         """
 
         # normalize SC matrix
@@ -58,16 +61,15 @@ class Pipeline:
 
         return eigenvectors
 
-    def run(self, SC, subject):
-        """
-        Processes the Structural Connectivity (SC) matrix for a given subject by computing its harmonic components
-        and generating 3D brain visualizations.
-        """
+    def _project(self, e_vec, RSN_dictionary):
+        print("Projecting RSN information...")
+        projecter = Projecter(e_vec)  # self.phi = e_vec!!!
+        # project all the RSN
+        proj = projecter.projectVectorRegion(RSN_dictionary, False)
+        proj_for_plots = projecter.projectVectorRegion(RSN_dictionary, True)
+        return proj, proj_for_plots
 
-        # HARMONICS: compute the harmonics (eigenvectors)
-        e_vec = self.compute_e(SC)
-
-        # RSN DICTIONARY: generate the RSN dictionary
+    def _getRSNinfo(self):
         print("Getting the RSN dictionary")
         # obtain the path where the RSN info is stored
         if Mode == "Burbu":
@@ -79,47 +81,58 @@ class Pipeline:
         rsn_path = parc_path + 'Glasser360RSN_7_RSN_labels.csv'
         # get the information
         rsnInfo = RestingStateNetworks(rsn_path, save_path)
-        RSN_dictionary, RSN_names = rsnInfo.getRSNinformation()
+        return rsnInfo
+
+    def _recErrorComputeandPlot(self, recError, RSN_dictionary, RSN_names, proj, subject):
+        errors_dict = {}
+        for rsn in RSN_names:
+            # obtain the desired RSN and its projection
+            desired_RSN, desired_proj = self.rsnInfo.get_desired_RSN(RSN_names, RSN_dictionary, proj, rsn)  # no sorted
+            # compute the reconstruction error
+            errors = recError.accumulated_reconstruction_error(desired_proj, desired_RSN)
+            # save it in the errors dictionary
+            errors_dict[rsn] = errors
+        # generate the plot
+        recError.plot_all_reconstruction_errors(errors_dict, Mode, subject)
+
+    def run(self, SC, subject):
+        """
+        Processes the Structural Connectivity (SC) matrix for a given subject by computing its harmonic components
+        and generating 3D brain visualizations.
+        """
+        # RSN DICTIONARY: generate the RSN dictionary
+        RSN_dictionary, RSN_names = self.rsnInfo.getRSNinformation()
+
+        # HARMONICS: compute the harmonics (eigenvectors)
+        e_vec = self._compute_e(SC)[:RSN_dictionary.shape[0], :]
 
         # PROJECT RSN (WITH THE EIGENVECTORS)
-        print("Projecting RSN information...")
-        e_vec = e_vec[:RSN_dictionary.shape[0], :] # same regions in both e_vec and dictionary
-        projecter = Projecter(e_vec)  # self.phi = e_vec!!!
-        # project all the RSN
-        proj = projecter.projectVectorRegion(RSN_dictionary, False)
-        proj_for_plots = projecter.projectVectorRegion(RSN_dictionary, True)
+        proj, proj_for_plots = self._project(e_vec, RSN_dictionary)
 
         #MUTUAL INFORMATION
         # compute the mutual information between each RSN and the eigenvectors (harmonics)
         print("Calculating Mutual Information between RSN and harmonics...")
-        mi_matrix = projecter.computeMutualInformation(RSN_dictionary)
+        mi = mutualInformation(e_vec, RSN_dictionary, self.work_folder)
+        mi_matrix = mi.computeMutualInformation()
 
         # BRAIN PLOTS FOR RSN PROJECTIONS:
         # the projection used here will be the one for plots --> better for visual comprehension
         self.visualizer.visualize_RSN(subject, proj_for_plots.T, RSN_names)  # colored brain plots for each RSN
 
         #STEM PLOTS FOR: PROJECTIONS (IMPORTANCE) AND MUTUAL INFORMATION
-        rsnInfo.visualize_stemplot_RSN(subject, proj_for_plots, RSN_names, "proj")  # projections stem plot
-        rsnInfo.visualize_stemplot_RSN(subject, mi_matrix, RSN_names, "mi")  # mutual information stem plot
+        self.rsnInfo.visualize_stemplot_RSN(subject, proj, RSN_names, "proj")  # projections stem plot
+        self.rsnInfo.visualize_stemplot_RSN(subject, mi_matrix, RSN_names, "mi")  # mutual information stem plot
 
         # COMPUTING AND PLOTTING RECONSTRUCTION ERRORS FOR EACH RSN
         # calculate reconstruction errors for recreating FIG.3 S.Atasoy
-        errors_dict = {}
-        for rsn in RSN_names:
-            # obtain the desired RSN and its projection
-            desired_RSN, desired_proj = rsnInfo.get_desired_RSN(RSN_names, RSN_dictionary, proj, rsn) # no sorted
-            # compute the reconstruction error
-            errors = projecter.accumulated_reconstruction_error(desired_proj, desired_RSN)
-            # save it in the errors dictionary
-            errors_dict[rsn] = errors
-        # generate the plot
-        rsnInfo.plot_all_reconstruction_errors(errors_dict, Mode, subject)
+        recError = reconstructionError(e_vec)
+        self._recErrorComputeandPlot(recError, RSN_dictionary, RSN_names, proj, subject)
 
         # OTHER OPERATIONS AND PLOTS
         #plot the sorted reconstruction error only for the "Default" mode
-        desired_RSN, desired_proj = rsnInfo.get_desired_RSN(RSN_names, RSN_dictionary, proj, "Default") # select a RSN (normally the Default one)
-        sorted_errors = projecter.accumulated_reconstruction_error(desired_proj, desired_RSN, True) # compute the errors sorting
-        rsnInfo.plot_reconstruction_error(sorted_errors, Mode, rsn, True) #plot
+        desired_RSN, desired_proj = self.rsnInfo.get_desired_RSN(RSN_names, RSN_dictionary, proj, "Default") # select a RSN (normally the Default one)
+        sorted_errors = recError.accumulated_reconstruction_error(desired_proj, desired_RSN, True) # compute the errors sorting
+        recError.plot_reconstruction_error(sorted_errors, Mode, "Default", True) #plot
 
     def get_work_folder(self):
         """

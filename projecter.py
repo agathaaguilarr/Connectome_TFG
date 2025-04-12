@@ -60,9 +60,10 @@ class Projecter:
                 vec_phi = self.phi[:, j]  # (n,)
 
                 if invert:
-                    alpha[i, j] = round(max(np.dot(vec_x.T, vec_phi), np.dot(-vec_x.T, vec_phi)))
+                    proj = max(np.dot(vec_x.T, vec_phi), np.dot(-vec_x.T, vec_phi))
                 else:
-                    alpha[i, j] = round(np.dot(vec_x.T, vec_phi),5)
+                    proj = np.dot(vec_x.T, vec_phi)
+                alpha[i,j] = round(proj, 5)
 
         return alpha
 
@@ -81,95 +82,3 @@ class Projecter:
             F_t = F[:, t].reshape(-1, 1)  # compute F(t) for the current time step using the passed function, it also ensures the (n,1) shape, otherwise it will be (n,)
             alpha[:, t] = self.projectVectorRegion(F_t, invert)  # project F(t) and store the result
         return alpha
-
-    def computeMutualInformation(self, RSN):
-        """
-        computes the mutual information between RSN and each eigenvector (self.phi)
-        :param RSN: a n*m matrix where n are the regions and m are the number of RSN
-        :return: the mutual information between RSN and each eigenvector
-        """
-        mutual_info = []
-        for rsn in range(RSN.shape[1]):  # each iteration, one different RSN
-            vector = RSN[:, rsn]
-
-            mi_rsn_i = mutual_info_classif(self.phi, vector, discrete_features=False)
-
-            mutual_info.append(mi_rsn_i)
-
-        return np.array(mutual_info)  # MI matriz: rows = RSN, columns = eigenvectors
-
-        # FORMAT OF THE FINAL RESULT:
-            # [[0.1, 0.3, 0.05, 0.2],  # MI between RSN 0 and all the eigenvectors
-            #                        .................
-            #                        .................
-            #  [0.2, 0.5, 0.3, 0.1]]   # MI between RSN 6 and all the eigenvectors
-
-    def sort_projections(self, projection):
-        """
-        order the eigenvectors (self.phi) and its projections (projection) depending on the projection value (weights/importance),
-        the order is descendent, from grater to smaller
-        :param projection: an n vector corresponding to the eigenvectors projected to a vector (normally RSN)
-        :return: sorted_projection, sorted_phi, respectively the ordered projections and eigenvectors
-        """
-        # order the magnitude of the projection from bigger to smaller and get the indices
-        sorted_indices = np.argsort(np.abs(projection))[::-1]
-        # order the eigenvectors (self.phi) and the projections (projection) depending on the ordered indices from before
-        sorted_projection = projection[sorted_indices]
-        sorted_phi = self.phi[:, sorted_indices]
-
-        return sorted_projection, sorted_phi
-
-    def reconstruction_error(self, projection, RSN_vector, phi_partial):
-        """
-            Calculates the accumulated reconstruction error by summing weighted eigenvectors.
-
-            :param projection: A vector of projected weights (shape: [N,])
-            :param RSN_vector: RSN vector (shape: [N,])
-            :return: Normalized reconstruction errors list
-        """
-
-        # unification of dimensions, taking as reference the eigenvector matrix size
-        n = phi_partial.shape[0]
-        projection = projection[:n]
-        phi = phi_partial[:n, :]
-
-        # calculate the reconstructed vector (multiplying each vector i to the correspondent projection i (value))
-        reconstructed_vector = np.dot(phi, projection)
-
-        # calculate the reconstruction error using the Euclidean distance between the real RSN vector and the reconstructed one
-        error = np.linalg.norm(RSN_vector - reconstructed_vector)
-
-        return error
-
-    def accumulated_reconstruction_error(self, projection, RSN_vector, sort=False):
-        """
-        it computes the accumulated reconstruction error
-        :param projection: the projection corresponding to RSN_vector
-        :param RSN_vector: the original RSN vector
-        :param sort: whether to sort the reconstruction error or not
-        :param name: name of the RSNa
-        :return norm_acc_error: the normalized incremental reconstruction error
-        """
-        if sort: # sort in a descendent order
-            proj, phi = self.sort_projections(projection) # descendent sorting of the projections (weights) and the eigenvectors (harmonics)
-                                                          # the projections tell us the importance of each eigenvector in the RSN reconstruction
-        else: # don't sort
-            proj = projection
-            phi = self.phi
-
-        # prepare instances
-        error_accumulated = []  # we will save here the errors
-        total_components = RSN_vector.shape[0]  # number of total components
-
-        for i in range(1, total_components + 1):
-            # each time we take the first i components, each time i will get grater (+1) until all the components are taken into account
-            proj_partial = proj[:i]  # % of projections
-            phi_partial = phi[:, :i]  # % of eigenvectors
-
-            # calculate the reconstructed error for the selected portion
-            error = self.reconstruction_error(proj_partial, RSN_vector, phi_partial) # at each iteration we send 1 more pair of (eigenvector - projection)
-            error_accumulated.append(error)  # save the error
-
-        # normalize between 0-1
-        norm_acc_error = np.array(error_accumulated)/max(np.array(error_accumulated))
-        return norm_acc_error
