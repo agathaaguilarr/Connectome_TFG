@@ -10,9 +10,10 @@ class LaplacianCalculator: #superclass
         :param th: threshold, it is defined by the user before (or it is 0.0005 by default)
         :return: binary adjacency nxn matrix
         """
-        A = np.ones(M.shape)
-        A[M <= th] = 0
-        A = np.maximum(A, A.T)
+        A = np.copy(M) # do not binarize the matrix ( to binarize change this line to: np.ones(M.shape) )
+        A[A <= th] = 0
+        A = np.maximum(A, A.T)  # ensure symmetry
+
         return A
 
     @staticmethod

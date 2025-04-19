@@ -39,8 +39,7 @@ class reconstructionError:
         :return norm_acc_error: the normalized incremental reconstruction error
         """
         if sort:  # sort in a descendent order
-            proj, phi = self.sort_projections(
-                projection)  # descendent sorting of the projections (weights) and the eigenvectors (harmonics)
+            proj, phi = self.sort_projections(projection) # descendent sorting of the projections (weights) and the eigenvectors (harmonics)
             # the projections tell us the importance of each eigenvector in the RSN reconstruction
         else:  # don't sort
             proj = projection
@@ -48,7 +47,7 @@ class reconstructionError:
 
         # prepare instances
         error_accumulated = []  # we will save here the errors
-        total_components = RSN_vector.shape[0]  # number of total components
+        total_components = min(self.phi.shape[1], RSN_vector.shape[0])
 
         for i in range(1, total_components + 1):
             # each time we take the first i components, each time i will get grater (+1) until all the components are taken into account

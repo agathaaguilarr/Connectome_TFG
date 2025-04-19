@@ -24,5 +24,16 @@ class HarmonicCalculator:
         D = lp.get_deg(A)                 # get the degree matrix
         L = lps.get_laplacian(A, D)       # get the symmetric laplacian
 
-        e_val, e_vec = np.linalg.eigh(L) # compute the eigen vectors and eigen values
+        e_val, e_vec = np.linalg.eigh(L) # compute the eigen vectors and eigen values, they are given in a ascendent way
+        # from smaller eigenvalue (more important) to greater eigenvalue (less important)
+
+        # i want to make sure the sorting
+        # Calcular autovalors i autovectors (la funció eigh assumeix matriu simètrica)
+        e_val, e_vec = np.linalg.eigh(L)
+
+        # Ja vénen ordenats de menor a major, però per assegurar-ho:
+        idx = np.argsort(e_val)
+        e_val = e_val[idx]
+        e_vec = e_vec[:, idx]
+
         return e_val, np.real(e_vec)
