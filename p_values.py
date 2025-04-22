@@ -193,7 +193,7 @@ from itertools import combinations
 import pandas as pd
 pd.DataFrame.iteritems = pd.DataFrame.items  # internal Pandas bugfix for Pandas 2.0
 import seaborn as sns
-from statannotations.Annotator import Annotator
+from statannotations.Annotator import Annotator # SI NO FUNCIONA FER SERVIR LA FUNCIÓ PERO SENSE EL 2!!!!
 
 
 def padEqualLengtLists(tests):

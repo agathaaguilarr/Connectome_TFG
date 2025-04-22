@@ -21,7 +21,11 @@ class DataLoader:
         """
         # Load the CSV file into a DataFrame, selecting only the 'id' and 'condition' columns
         column_names = ['id', 'condition']
-        df = pd.read_csv(self.csv_path, header=None, sep=',', names=column_names, usecols=[0, 1])
+        try:
+            df = pd.read_csv(self.csv_path, header=None, sep=',', names=column_names, usecols=[0, 1])
+        except Exception as e:
+            print(f"Error reading CSV file at {self.csv_path}: {e}")
+            return None
 
         return df
 
@@ -32,6 +36,9 @@ class DataLoader:
         """
         # Return a dictionary of subject IDs and their respective group labels (conditions)
         df = self._load_patient_data()
+        if df is None:
+            print("Patient data could not be loaded.")
+            return None
         return dict(zip(df['id'], df['condition']))
 
     def get_group_avg_matrix(self, group="HC", sc=True):
@@ -43,6 +50,9 @@ class DataLoader:
         """
         # load the metadata for the patients
         df = self._load_patient_data()
+        if df is None:
+            print("Patient data could not be loaded.")
+            return None
         subjects = df[df['condition'] == group]['id'].values  # get all subjects in the group=group
 
         # check if there are patients for the group, and if they have been loaded correctly
@@ -85,7 +95,6 @@ class DataLoader:
     def load_matrix(self, subject, sc=True):
         """
         Loads the matrix for a specific subject.
-
         :param subject: Subject ID (patient)
         :param sc: If True, loads Structural Connectivity (SC), otherwise loads fMRI time series.
         :return: NumPy array with the connectivity or fMRI data.
@@ -103,3 +112,37 @@ class DataLoader:
         df = pd.DataFrame(data)
 
         return df.values  # numpy array !
+
+    def get_all_fMRI(self, group='HC'):
+        """
+        Gets all the fMRI
+        :param group: Group label (HC, MCI, AD). Default is HC (control group).
+        :return: returns all the fMRI matrices in a list, for each subject
+        """
+        # load the metadata for the patients
+        df = self._load_patient_data()
+        if df is None:
+            print("Patient data could not be loaded.")
+            return None
+        subjects = df[df['condition'] == group]['id'].values  # get all subjects in the group=group
+
+        # check if there are patients for the group, and if they have been loaded correctly
+        if len(subjects) == 0:
+            print(f"No subjects found for group {group}")
+            return None
+
+        # load first matrix to determine shape
+        first_matrix = self.load_matrix(subjects[0], sc=False) # loads fMRI
+        if first_matrix is None:  # check if the matrix has been loaded
+            print(f"Could not load matrix for subject {subjects[0]}")
+            return None
+
+        fMRI_matrices = []
+
+        # go through all the subjects
+        for subject in subjects:
+            matrix = self.load_matrix(subject, sc=False)  # load the matrix
+            if matrix is not None:
+                    fMRI_matrices.append(matrix) # add the fMRI info to the matrix
+
+        return fMRI_matrices

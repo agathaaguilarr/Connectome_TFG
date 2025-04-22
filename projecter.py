@@ -47,17 +47,22 @@ class Projecter:
         x = np.atleast_2d(x)
         self.phi = np.atleast_2d(self.phi)
 
+        min_rows = min(x.shape[0], self.phi.shape[0])
+        x = x[:min_rows, :]
+        phi = self.phi[:min_rows, :]
+
+        print(x.shape)
+        print(phi.shape)
+
         nr_modes = x.shape[1]  # Number of basis vectors (m)
-        #print("Number of basis vectores ", nr_modes)
-        nr_phi = self.phi.shape[1]  # Number of phi vectors (k)
-        #print("Dimensions for phi (harmonics): ", self.phi.shape)
+        nr_phi = phi.shape[1]  # Number of phi vectors (k)
 
         alpha = np.zeros((nr_modes, nr_phi))  # Initialize alpha as (m × k)
 
         for i in range(nr_modes):
             for j in range(nr_phi):
                 vec_x = x[:, i]  # (n,)
-                vec_phi = self.phi[:, j]  # (n,)
+                vec_phi = phi[:, j]  # (n,)
 
                 if invert:
                     proj = max(np.dot(vec_x.T, vec_phi), np.dot(-vec_x.T, vec_phi))
@@ -74,6 +79,7 @@ class Projecter:
             :param invert --> which can be true or false (by default is true), used in the function projectVectorRegion
             :return alpha --> a matrix of projections of shape (k, T), where each column is the projection at a different time step
         """
+        F = np.array(F)[:self.phi.shape[0]] # same dimensions as phi (e_Vec)
         n,T = F.shape
         nr_phi = self.phi.shape[1]  # Number of phi vectors (k)
         alpha = np.zeros((nr_phi, T))  # initialize a matrix to store the projections
