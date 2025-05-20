@@ -51,9 +51,6 @@ class Projecter:
         x = x[:min_rows, :]
         phi = self.phi[:min_rows, :]
 
-        print(x.shape)
-        print(phi.shape)
-
         nr_modes = x.shape[1]  # Number of basis vectors (m)
         nr_phi = phi.shape[1]  # Number of phi vectors (k)
 
@@ -72,6 +69,7 @@ class Projecter:
 
         return alpha
 
+
     def projectVectorTime(self, F, invert=True):
         """
         projects a time-dependent vector (a function F(t)) onto multiple basis vectors over T time steps
@@ -82,9 +80,9 @@ class Projecter:
         F = np.array(F)[:self.phi.shape[0]] # same dimensions as phi (e_Vec)
         n,T = F.shape
         nr_phi = self.phi.shape[1]  # Number of phi vectors (k)
-        alpha = np.zeros((nr_phi, T))  # initialize a matrix to store the projections
+        beta = np.zeros((nr_phi, T))  # initialize a matrix to store the projections
 
         for t in range(T):
             F_t = F[:, t].reshape(-1, 1)  # compute F(t) for the current time step using the passed function, it also ensures the (n,1) shape, otherwise it will be (n,)
-            alpha[:, t] = self.projectVectorRegion(F_t, invert)  # project F(t) and store the result
-        return alpha
+            beta[:, t] = self.projectVectorRegion(F_t, invert)  # project F(t) and store the result
+        return beta

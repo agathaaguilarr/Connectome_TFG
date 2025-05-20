@@ -2,7 +2,7 @@ import numpy as np
 from laplacianCalculator import LaplacianCalculator, SymmetricLaplacian
 
 class HarmonicCalculator:
-    def __init__(self, th=0.0005): #constructor
+    def __init__(self, th=0.0001): #constructor
         """
         constructor for this class
         :param th --> the threshold on the parameter is the one by default in case there is no th defined when the constructor is created
@@ -24,14 +24,12 @@ class HarmonicCalculator:
         D = lp.get_deg(A)                 # get the degree matrix
         L = lps.get_laplacian(A, D)       # get the symmetric laplacian
 
-        e_val, e_vec = np.linalg.eigh(L) # compute the eigen vectors and eigen values, they are given in a ascendent way
-        # from smaller eigenvalue (more important) to greater eigenvalue (less important)
-
-        # i want to make sure the sorting
-        # Calcular autovalors i autovectors (la funció eigh assumeix matriu simètrica)
+        # compute the eigen vectors and eigen values, they are given in a ascendent way
+        # from smaller eigenvalue (more important, more information) to greater eigenvalue (less important)
+        # compute eigenvalues and eigenvevctors (the function eigh already assumes the matrix symmetric)
         e_val, e_vec = np.linalg.eigh(L)
 
-        # Ja vénen ordenats de menor a major, però per assegurar-ho:
+        # although they are already sorted from smaller to greater, we do it again to assure it!
         idx = np.argsort(e_val)
         e_val = e_val[idx]
         e_vec = e_vec[:, idx]

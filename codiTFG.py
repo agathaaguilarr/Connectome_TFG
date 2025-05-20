@@ -8,12 +8,12 @@ from mutualInfo import mutualInformation
 from recosntructionError import reconstructionError
 import p_values
 
+# import other packages
 import os
-import pandas as pd
 import matplotlib.pyplot as plt
-
-# other util imports
 import numpy as np
+from scipy.stats import zscore
+
 
 Mode = "Burbu"  # Burbu / Gus
 type = "mean"
@@ -44,6 +44,7 @@ class Pipeline:
         self.harmonic_calculator = HarmonicCalculator(th=0.00065) # initialize an instance of the HarmonicCalculator class
         self.visualizer = BrainVisualizer(self.work_folder, Mode) # creates an instance of BrainVisualizer to generate plots
         self.rsnInfo = self._getRSNinfo() # creates an instance of the RSNinfo, to obtain the information for the Resting State Networks
+        self.RSN_dictionary, self.RSN_names = self.rsnInfo.getRSNinformation()
         self.computeFC = ComputeFC() # creates an instance of ComputFC to obtain the FC matrixs
 
     def _getWorkFolder(self):
@@ -60,7 +61,6 @@ class Pipeline:
         :return: sorted eigenvectors
         """
         # normalize SC matrix
-        #M = matrix
         M = (matrix / np.max(matrix)) * 1.0
         # remove self connections (diagonal)
         M -= np.diag(np.diag(M))
@@ -139,19 +139,33 @@ class Pipeline:
         # generate the plot
         recError.plot_all_reconstruction_errors(errors_dict, Mode, subject)
 
+    def _print10higherProjValues(self, proj):
+        top_n = 10
+        for row in range(proj.shape[0]):  # Para cada RSN
+            row_vals = proj[row, :]  # Proyecciones de esta RSN sobre todos los eigenvectores
+            top_indices = np.argsort(row_vals)[-top_n:][::-1]  # Índices de los 10 eigenvectores con mayor proyección
+
+            print(f"\nRSN {self.RSN_names[row]} — Top {top_n} eigenvectors:")
+            for rank, idx in enumerate(top_indices):
+                val = row_vals[idx]
+                print(f"  {rank + 1}. Eigenvector {idx} → Projection value: {val:.4f}")
+
     def _staticRun(self, M, subject):
         """
         Processes the Structural Connectivity (SC) or the Functional CConnectivity (FC) matrix for a given subject (or an average) by computing
         its harmonic components and generating 3D brain visualizations among other operations
         """
         # RSN DICTIONARY: generate the RSN dictionary
-        RSN_dictionary, RSN_names = self.rsnInfo.getRSNinformation()
+        RSN_dictionary = self.RSN_dictionary
+        RSN_names = self.RSN_names
 
         # HARMONICS: compute the harmonics (eigenvectors)
         e_vec = self._compute_e(M)[:RSN_dictionary.shape[0], :]
+        self.visualizer.visualize_RSN(subject, e_vec, list(range(0, 19))) # 1st 20s
 
         # PROJECT RSN (WITH THE EIGENVECTORS) AND SHOW STEM PLOTS
         proj, proj_for_plots = self._projectRSN(e_vec, RSN_dictionary)
+        self._print10higherProjValues(proj_for_plots)
 
         #MUTUAL INFORMATION
         # compute the mutual information between each RSN and the eigenvectors (harmonics)
@@ -164,7 +178,7 @@ class Pipeline:
         self.visualizer.visualize_RSN(subject, proj_for_plots.T, RSN_names)  # colored brain plots for each RSN
 
         #STEM PLOTS FOR: PROJECTIONS (IMPORTANCE) AND MUTUAL INFORMATION
-        mi.plot_stemplot(subject, proj, RSN_names, "proj")  # projections stem plot
+        mi.plot_stemplot(subject, proj_for_plots, RSN_names, "proj")  # projections stem plot
         mi.plot_stemplot(subject, mi_matrix, RSN_names, "mi")  # mutual information stem plot
 
         # COMPUTING AND PLOTTING RECONSTRUCTION ERRORS FOR EACH RSN
@@ -178,83 +192,125 @@ class Pipeline:
         sorted_errors = recError.accumulated_reconstruction_error(desired_proj, desired_RSN, True) # compute the errors sorting
         recError.plot_reconstruction_error(sorted_errors, Mode, "Default", True) #plot
 
-    def _dynamicRun(self, M, c):
+        return proj_for_plots
+
+    def _dynamicRun(self, M, projRSN, rsn_name="Default", top_n=30, c=""):
         """
-        DEFINITION
+        Realiza análisis dinámico usando eigenvectores ordenados por proyección sobre una RSN dada.
+        """
+        if rsn_name not in self.RSN_names:
+            raise ValueError(f"RSN '{rsn_name}' is not existing.")
+        rsn_index = self.RSN_names.index(rsn_name)
+
+        # obtain the eigenvectors depending on the RSN projections importance
+        # we will get the most important harmonics for each RSN
+        proj_values = projRSN[rsn_index] # the desired RSN projections
+        sorted_indices = np.argsort(-np.abs(proj_values))  # descendent sortig by modulus (abs value)
+        e_vec = self._compute_e(M) # compute the eigenvectors for the M connectivity
+        e_vec_sorted = e_vec[:, sorted_indices[:top_n]]
+
+        e = e_vec_sorted
+        idx = sorted_indices
+
+        # load the fMRIs!
+        fMRI_HC = self.data_loader.get_all_fMRI()
+        fMRI_MCI = self.data_loader.get_all_fMRI("MCI")
+        fMRI_AD = self.data_loader.get_all_fMRI("AD")
+
+        # project the eigenvectors computed with the control average FC/SC matrices with the fMRI
+        projfMRI_HC = self._projectfMRI(e, fMRI_HC)
+        projfMRI_MCI = self._projectfMRI(e, fMRI_MCI)
+        projfMRI_AD = self._projectfMRI(e, fMRI_AD)
+
+        self._plotComparisonAcrossLabels2(projfMRI_HC, projfMRI_MCI, projfMRI_AD, idx, c)
+
+    def _runDynamicAllRSN(self, M, projRSN, c, top_n=30):
+        """
+        ---
         :param M:
-        :param subject:
-        :return:
+        :param projRSN:
+        :param c:
+        :param top_n:
         """
-        # HARMONICS: compute the harmonics (eigenvectors)
-        e_vec = self._compute_e(M)
+        for rsn_name in self.RSN_names:
+            print(f"\nDynamic analysis for RSN: {rsn_name}")
+            self._dynamicRun(M, projRSN, rsn_name=rsn_name, top_n=top_n, c=str(c) + f"_{rsn_name}")
 
-        #OBTAIN THE fMRI lists for all the groups --> llistes de matrius
-        fMRI_HC = self.data_loader.get_all_fMRI() #HC control
-        fMRI_MCI = self.data_loader.get_all_fMRI("MCI")  # HC control
-        fMRI_AD = self.data_loader.get_all_fMRI("AD")  # HC control
+    def _plotComparisonAcrossLabels2(self, projfMRI_HC, projfMRI_MCI, projfMRI_AD, idx, c):
+            # creates a figure with 2 rows and 5 columns
+            fig, axs = plt.subplots(2, 5, figsize=(20, 8))
+            axs = axs.flatten()  # to loop it as a list
 
-        # PROJECT fMRI (WITH THE EIGENVECTORS) AND SHOW BARPLOTS --> (n_evec, n_timepoints) (360x179)
-        projfMRI_HC = self._normalizeProj(self._projectfMRI(e_vec, fMRI_HC))
-        projfMRI_MCI = self._normalizeProj(self._projectfMRI(e_vec, fMRI_MCI))
-        projfMRI_AD = self._normalizeProj(self._projectfMRI(e_vec, fMRI_AD))
+            # plot the barplots for the 1st 10 eigenvectors
+            for i, row in enumerate(idx[:10]):
+                dicctionary = self._getDictionary(i, projfMRI_HC, projfMRI_MCI, projfMRI_AD)
+                print("Eigenvector " + str(row) + ": ")
+                p_values.plotComparisonAcrossLabels2Ax(
+                    axs[i],
+                    tests=dicctionary,
+                    columnLables=["HC", "MCI", "AD"],
+                    graphLabel=f"EigVec {row}",
+                    test='Mann-Whitney',
+                    comparisons_correction="BH"
+                )
 
-        self._plotComparisonAcrossLabels2(projfMRI_HC, projfMRI_MCI, projfMRI_AD, c)
+            plt.tight_layout()
+            save_dir = os.path.join(self.work_folder, "images", "barplot_comparisons_dynamic")
+            os.makedirs(save_dir, exist_ok=True)  # create base directory
 
-    def _plotComparisonAcrossLabels2(self, projfMRI_HC, projfMRI_MCI, projfMRI_AD, c):
-        # creates a figure with 2 rows and 5 columns
-        fig, axs = plt.subplots(2, 5, figsize=(20, 8))
-        axs = axs.flatten()  # to loop it as a list
+            # Choose subfolder based on condition
+            if "FC" in c:
+                save_dir_C = os.path.join(save_dir, "FC")
+            else:  # "SC" in c
+                save_dir_C = os.path.join(save_dir, "SC")
 
-        # plot the barplots for the 1st 10 eigenvectors
-        for row in range(10):
-            dicctionary = self._getDictionary(row, projfMRI_HC, projfMRI_MCI, projfMRI_AD)
-            # individual subplots
-            p_values.plotComparisonAcrossLabels2Ax(
-                axs[row],
-                tests=dicctionary,
-                columnLables=["HC", "MCI", "AD"],
-                graphLabel=f"EigVec {row}",
-                test='Mann-Whitney',
-                comparisons_correction="BH"
-            )
-        plt.tight_layout()
-        save_dir = os.path.join(self.work_folder, "images")
-        os.makedirs(save_dir, exist_ok=True)  # crea la carpeta si no existe
-        save_path = os.path.join(save_dir, f"fMRI_proj_comparison_{c}.png")
-        plt.savefig(save_path)
-        plt.close(fig)
+            os.makedirs(save_dir_C, exist_ok=True)  # create subfolder
+
+            # Save path should point into the correct subfolder
+            save_path = os.path.join(save_dir_C, f"comparison_{c}.png")
+            plt.savefig(save_path)
+            plt.close(fig)
 
 
     def _getDictionary(self, row, proj_hc, proj_mci, proj_ad):
-        # initializate lists --> no es una llista de vectors, es una llista de numeros (valors dels vectors) on es concatenen els vectors
         hc = []
         mci = []
         ad = []
+        all_values = []
+
         # get the row "row" for each matrix on the list of projections
-        for h in proj_hc: # les variacions en el temps han de ser coherents
-            hc.extend(h[row].tolist())
-        for m in proj_mci: # les variacions en el temps han de ser menys coherents
-            mci.extend(m[row].tolist())
-        for a in proj_ad: # les variacions en el temps han de GENS coherents
-            ad.extend(a[row].tolist())
+        for h in proj_hc: # healthy
+            vals = h[row].tolist()
+            hc.extend(vals)
+            all_values.extend(vals)
+
+        for m in proj_mci: # mild
+            vals = m[row].tolist()
+            mci.extend(vals)
+            all_values.extend(vals)
+
+        for a in proj_ad: # alzheimer
+            vals = a[row].tolist()
+            ad.extend(vals)
+            all_values.extend(vals)
+
+        all_values = np.array(all_values)
+        # extract min and max values from the whole bunch of projections
+        min_val = np.min(all_values)
+        max_val = np.max(all_values)
+
+        range_val = max_val - min_val if max_val != min_val else 1.0  # in order not to divide by zero
+
+        hc = [(x - min_val) / range_val for x in hc]
+        mci = [(x - min_val) / range_val for x in mci]
+        ad = [(x - min_val) / range_val for x in ad]
+
         dict = {
-            "HC": hc, # llista llarga de numeros! 197*17
-            "MCI": mci, # llista llarga de numeros! 197*9
-            "AD": ad # llista llarga de numeros! 197*10
+            "HC": hc, # 197*17
+            "MCI": mci, # 197*9
+            "AD": ad # 197*10
         }
         return dict
-
-    def _normalizeProj(self, proj_fMRI):
-        """"
-        """
-        proj_fMRI_normalized = []
-        for proj in proj_fMRI:
-            proj_min = np.min(proj)
-            proj_max = np.max(proj)
-            proj_normalized = (proj - proj_min) / (proj_max - proj_min)  # Normaliza entre 0 y 1
-            proj_fMRI_normalized.append(proj_normalized)
-
-        return proj_fMRI_normalized
 
 
     def _data_config(self, data_loader):
@@ -295,13 +351,14 @@ if __name__ == '__main__':
     SC_avg_HC, FC_avg_HC = pipeline._data_config(data_loader)
 
     print(f"Running static pipeline for average controls SC")
-    pipeline._staticRun(SC_avg_HC, "mean_control_SC")
+    rsnProjSC = pipeline._staticRun(SC_avg_HC, "mean_control_SC")
     print(f"Running static pipeline for average controls FC")
-    pipeline._staticRun(FC_avg_HC, "mean_control_FC")
+    rsnProjFC = pipeline._staticRun(FC_avg_HC, "mean_control_FC")
 
     # static analysis --> S.Atasoy '17 (SC) & J.Vohryzek '24 (FC)
     print('Starting the DYNAMIC analysis...')
-    pipeline._dynamicRun(SC_avg_HC, "mean_control_SC")
-    pipeline._dynamicRun(FC_avg_HC, "mean_control_FC")
+
+    pipeline._runDynamicAllRSN(SC_avg_HC, rsnProjSC,"mean_control_SC", 50)
+    pipeline._runDynamicAllRSN(FC_avg_HC, rsnProjFC,"mean_control_FC", 50)
 
     print('The whole tasks have been done!!!')

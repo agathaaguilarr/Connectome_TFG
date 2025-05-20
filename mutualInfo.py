@@ -35,7 +35,7 @@ class mutualInformation:
         :param RSN_names: list of RSN names
         :param name: "mi" for mutual information or any other string for projection
         """
-        save_folder = os.path.join(self.save_path, f"{subject}_RSN")
+        save_folder = os.path.join(self.save_path, "images", f"{subject}_RSN")
         os.makedirs(save_folder, exist_ok=True)
 
         info = "mutual_information" if name == "mi" else "projection"
@@ -46,7 +46,7 @@ class mutualInformation:
             os.makedirs(rsn_folder, exist_ok=True)
 
             plt.figure(figsize=(6, 4))
-            plt.stem(proj[i, 1:51])
+            plt.stem(proj[i, 1:41])
             plt.title(f"{rsn_name} - {info}")
             plt.xlabel("N harmonic")
             plt.ylabel(y_label)
