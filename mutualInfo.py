@@ -46,7 +46,7 @@ class mutualInformation:
             os.makedirs(rsn_folder, exist_ok=True)
 
             plt.figure(figsize=(6, 4))
-            plt.stem(proj[i, 1:41])
+            plt.stem(proj[i, 0:40])
             plt.title(f"{rsn_name} - {info}")
             plt.xlabel("N harmonic")
             plt.ylabel(y_label)

@@ -12,7 +12,6 @@ import p_values
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import zscore
 
 
 Mode = "Burbu"  # Burbu / Gus
@@ -139,16 +138,25 @@ class Pipeline:
         # generate the plot
         recError.plot_all_reconstruction_errors(errors_dict, Mode, subject)
 
-    def _print10higherProjValues(self, proj):
+    def _print10higherValues(self, proj, m):
+        """
+        Display the top 10 values for a given vector
+        :param proj: vector of values
+        :param m: type of values
+        """
         top_n = 10
-        for row in range(proj.shape[0]):  # Para cada RSN
-            row_vals = proj[row, :]  # Proyecciones de esta RSN sobre todos los eigenvectores
-            top_indices = np.argsort(row_vals)[-top_n:][::-1]  # Índices de los 10 eigenvectores con mayor proyección
+        if m == "mi":
+            name = "Mutual information"
+        else:
+            name = "Projection"
+        for row in range(proj.shape[0]):
+            row_vals = proj[row, :]
+            top_indices = np.argsort(row_vals)[-top_n:][::-1]
 
             print(f"\nRSN {self.RSN_names[row]} — Top {top_n} eigenvectors:")
             for rank, idx in enumerate(top_indices):
                 val = row_vals[idx]
-                print(f"  {rank + 1}. Eigenvector {idx} → Projection value: {val:.4f}")
+                print(f"  {rank + 1}. Eigenvector {idx} → {name} value: {val:.4f}")
 
     def _staticRun(self, M, subject):
         """
@@ -165,7 +173,7 @@ class Pipeline:
 
         # PROJECT RSN (WITH THE EIGENVECTORS) AND SHOW STEM PLOTS
         proj, proj_for_plots = self._projectRSN(e_vec, RSN_dictionary)
-        self._print10higherProjValues(proj_for_plots)
+        self._print10higherValues(proj_for_plots, "proj")
 
         #MUTUAL INFORMATION
         # compute the mutual information between each RSN and the eigenvectors (harmonics)
@@ -180,6 +188,7 @@ class Pipeline:
         #STEM PLOTS FOR: PROJECTIONS (IMPORTANCE) AND MUTUAL INFORMATION
         mi.plot_stemplot(subject, proj_for_plots, RSN_names, "proj")  # projections stem plot
         mi.plot_stemplot(subject, mi_matrix, RSN_names, "mi")  # mutual information stem plot
+        self._print10higherValues(mi_matrix, "mi")
 
         # COMPUTING AND PLOTTING RECONSTRUCTION ERRORS FOR EACH RSN
         # calculate reconstruction errors for recreating FIG.3 S.Atasoy
@@ -196,7 +205,12 @@ class Pipeline:
 
     def _dynamicRun(self, M, projRSN, rsn_name="Default", top_n=30, c=""):
         """
-        Realiza análisis dinámico usando eigenvectores ordenados por proyección sobre una RSN dada.
+        Processes the Structural Connectivity (SC) or the Functional CConnectivity (FC) matrix for a given subject (or an average) by
+        conducting the dynamic analysis
+        :param M --> a matrix m*m (FC or SC)
+        :param projRSN --> a matrix RSN
+        :param rsn_name --> the name of the RSN, default by default
+        :param top_n --> the number of eigenvectors to compute
         """
         if rsn_name not in self.RSN_names:
             raise ValueError(f"RSN '{rsn_name}' is not existing.")
@@ -226,53 +240,63 @@ class Pipeline:
 
     def _runDynamicAllRSN(self, M, projRSN, c, top_n=30):
         """
-        ---
-        :param M:
-        :param projRSN:
-        :param c:
-        :param top_n:
+        runs all the dynamic analysis the RSN for
+        :param M: matrix m*m (FC or SC)
+        :param projRSN: matrix RSN
+        :param c: name
+        :param top_n: number of eigenvectors to compute
         """
         for rsn_name in self.RSN_names:
             print(f"\nDynamic analysis for RSN: {rsn_name}")
             self._dynamicRun(M, projRSN, rsn_name=rsn_name, top_n=top_n, c=str(c) + f"_{rsn_name}")
 
     def _plotComparisonAcrossLabels2(self, projfMRI_HC, projfMRI_MCI, projfMRI_AD, idx, c):
-            # creates a figure with 2 rows and 5 columns
-            fig, axs = plt.subplots(2, 5, figsize=(20, 8))
-            axs = axs.flatten()  # to loop it as a list
+        """
+        plots the comparison across labels for each group for some eigenvectors
+        :param projfMRI_HC: fMRI projections for HC
+        :param projfMRI_MCI: fMRI projections for MCI
+        :param projfMRI_AD: fMRI projections for HAD
+        :param idx: order of the eigenvectors
+        """
+        # creates a figure with 2 rows and 5 columns
+        fig, axs = plt.subplots(2, 5, figsize=(20, 8))
+        axs = axs.flatten()  # to loop it as a list
 
-            # plot the barplots for the 1st 10 eigenvectors
-            for i, row in enumerate(idx[:10]):
-                dicctionary = self._getDictionary(i, projfMRI_HC, projfMRI_MCI, projfMRI_AD)
-                print("Eigenvector " + str(row) + ": ")
-                p_values.plotComparisonAcrossLabels2Ax(
-                    axs[i],
-                    tests=dicctionary,
-                    columnLables=["HC", "MCI", "AD"],
-                    graphLabel=f"EigVec {row}",
-                    test='Mann-Whitney',
-                    comparisons_correction="BH"
-                )
+        # plot the barplots for the 1st 10 eigenvectors
+        for i, row in enumerate(idx[:10]):
+            dicctionary = self._getDictionary(i, projfMRI_HC, projfMRI_MCI, projfMRI_AD)
+            print("Eigenvector " + str(row) + ": ")
+            p_values.plotComparisonAcrossLabels2Ax(
+                axs[i],
+                tests=dicctionary,
+                columnLables=["HC", "MCI", "AD"],
+                graphLabel=f"EigVec {row}",
+                test='Mann-Whitney',
+                comparisons_correction="BH"
+            )
 
-            plt.tight_layout()
-            save_dir = os.path.join(self.work_folder, "images", "barplot_comparisons_dynamic")
-            os.makedirs(save_dir, exist_ok=True)  # create base directory
+        plt.tight_layout()
+        save_dir = os.path.join(self.work_folder, "images", "barplot_comparisons_dynamic")
+        os.makedirs(save_dir, exist_ok=True)  # create base directory
 
-            # Choose subfolder based on condition
-            if "FC" in c:
-                save_dir_C = os.path.join(save_dir, "FC")
-            else:  # "SC" in c
-                save_dir_C = os.path.join(save_dir, "SC")
+        # Choose subfolder based on condition
+        if "FC" in c:
+            save_dir_C = os.path.join(save_dir, "FC")
+        else:  # "SC" in c
+            save_dir_C = os.path.join(save_dir, "SC")
 
-            os.makedirs(save_dir_C, exist_ok=True)  # create subfolder
+        os.makedirs(save_dir_C, exist_ok=True)  # create subfolder
 
-            # Save path should point into the correct subfolder
-            save_path = os.path.join(save_dir_C, f"comparison_{c}.png")
-            plt.savefig(save_path)
-            plt.close(fig)
+        # Save path should point into the correct subfolder
+        save_path = os.path.join(save_dir_C, f"comparison_{c}.png")
+        plt.savefig(save_path)
+        plt.close(fig)
 
 
     def _getDictionary(self, row, proj_hc, proj_mci, proj_ad):
+        """
+        Creates a dictionary of the projection matrix for each patient for each group
+        """
         hc = []
         mci = []
         ad = []
